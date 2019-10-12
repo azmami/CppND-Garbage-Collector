@@ -117,7 +117,6 @@ Pointer<T,size>::Pointer(T *t){
 
     if (t != NULL) {  
         PtrDetails<T> ptr_details = PtrDetails<T>(t, size);
-        ptr_details.refcount++;
         this->refContainer.push_back(ptr_details);
     }
 }
@@ -141,7 +140,8 @@ template <class T, int size>
 Pointer<T, size>::~Pointer(){
     typename std::list<PtrDetails<T> >::iterator p;
     p = findPtrInfo(addr);
-    p->refcount--;
+    if (p->refcount > 0)
+        p->refcount--;
     collect();
 }
 
@@ -151,38 +151,38 @@ template <class T, int size>
 bool Pointer<T, size>::collect(){
     bool memfreed = false;
     typename std::list<PtrDetails<T> >::iterator p;
-    for (p = refContainer.begin(); p != refContainer.end(); p++) {
-        if (p->refcount > 0) {
-            continue;
-        } else {
-            if (p->isArray) {
-                delete[] p->memPtr;
+    do {
+        for (p = refContainer.begin(); p != refContainer.end(); p++) {
+            if (p->refcount > 0) {
+                continue;
             } else {
-                delete p->memPtr;
+                if (p->isArray) {
+                    delete[] p->memPtr;
+                } else {
+                    delete p->memPtr;
+                }
+                refContainer.remove(*p);
+                memfreed = true;
+                break;
             }
-            refContainer.remove(*p);
-            memfreed = true;
         }
-    }
+    } while (p != refContainer.end());
+    
     return memfreed;
 }
 
 // Overload assignment of pointer to Pointer.
 template <class T, int size>
 T *Pointer<T, size>::operator=(T *t){
-    addr = t;
     typename std::list<PtrDetails<T>>::iterator p;
-    
-    for (p = refContainer.begin(); p != refContainer.end(); p++) {
-        if (p->refcount > 0) {
-            p->refcount--;
-        }
+    p = findPtrInfo(this->addr);
+    if (p->refcount > 0) {
+        p->refcount--;
     }
-    
-    // increment the reference count of the new address
+
     PtrDetails<T> new_ptr = PtrDetails<T>(t, size);
-    new_ptr.refcount++;
-    refContainer.push_back(new_ptr);
+    this->refContainer.push_back(new_ptr);
+    this->addr = t;
 
     return t;
 }
@@ -190,8 +190,9 @@ T *Pointer<T, size>::operator=(T *t){
 template <class T, int size>
 Pointer<T, size> &Pointer<T, size>::operator=(Pointer &rv){
     typename std::list<PtrDetails<T> >::iterator p;
-    p = findPtrInfo(addr);
-    p->refcount--;
+    p = findPtrInfo(this->addr);
+    if (p->refcount > 0)
+        p->refcount--;
 
     p = findPtrInfo(rv.addr);
     p->refcount++;

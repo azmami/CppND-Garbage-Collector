@@ -26,7 +26,7 @@ array, then arraySize contains its size */
         else
             isArray = false;
         arraySize = array_size;
-        refcount = 0;
+        refcount = 1;
     }
 };
 // Overloading operator== allows two class objects to be compared.
@@ -35,5 +35,5 @@ template <class T>
 bool operator==(const PtrDetails<T> &ob1,
                 const PtrDetails<T> &ob2)
 {
-    return *(ob1.memPtr) == *(ob2.memPtr);
+    return ob1.memPtr == ob2.memPtr;
 }
